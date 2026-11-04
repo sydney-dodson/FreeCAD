@@ -306,7 +306,6 @@ void Gui::QuantitySpinBox::keyPressEvent(QKeyEvent* event)
             const QSignalBlocker blocker(lineEdit());
             updateText(d->quantity);
         }
-        // Restore the editor here, then leave cancellation to an enclosing task panel.
         event->ignore();
         return;
     }
@@ -317,23 +316,72 @@ void Gui::QuantitySpinBox::keyPressEvent(QKeyEvent* event)
             normalize();
         }
         if (d->validInput) {
-            // This handler deliberately consumes Return after committing the text. Preserve the
-            // QAbstractSpinBox signal contract for callers that use editingFinished().
             Q_EMIT returnPressed();
             Q_EMIT editingFinished();
-            // A successful local commit must not hide Return from an enclosing task panel.
             event->ignore();
         }
         else {
-            // Rejected input must not accept the surrounding task.
             event->accept();
         }
+        return;
+    }
+
+    if (event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
+        int steps = (event->key() == Qt::Key_Up) ? 1 : -1;
+        Qt::KeyboardModifiers mods = event->modifiers();
+        
+        // Default: Keys Only (1 unit)
+        double stepMultiplier = 1.0; 
+        
+        // Shift + Ctrl (0.1 units)
+        if ((mods & Qt::ControlModifier) && (mods & Qt::ShiftModifier)) {
+            stepMultiplier = 0.1;
+        } 
+        // Ctrl Only (10 units)
+        else if (mods & Qt::ControlModifier) {
+            stepMultiplier = 10.0;
+        }
+
+        double currentValue = this->value().getValue(); 
+        this->setValue(currentValue + (steps * stepMultiplier));
+        
+        event->accept();
         return;
     }
 
     if (!handleKeyEvent(event->text())) {
         QAbstractSpinBox::keyPressEvent(event);
     }
+}
+
+void Gui::QuantitySpinBox::wheelEvent(QWheelEvent* event)
+{
+    // Ignore if there is no vertical scroll
+    if (event->angleDelta().y() == 0) {
+        event->ignore();
+        return;
+    }
+
+    // Determine direction (+1 for up, -1 for down)
+    int steps = (event->angleDelta().y() > 0) ? 1 : -1;
+    Qt::KeyboardModifiers mods = event->modifiers();
+    
+    // Default: Mouse Wheel Only (1 unit)
+    double stepMultiplier = 1.0; 
+    
+    // Shift + Ctrl + Mouse Wheel (0.1 units)
+    if ((mods & Qt::ControlModifier) && (mods & Qt::ShiftModifier)) {
+        stepMultiplier = 0.1;
+    } 
+    // Ctrl + Mouse Wheel (10 units)
+    else if (mods & Qt::ControlModifier) {
+        stepMultiplier = 10.0;
+    }
+
+    double currentValue = this->value().getValue(); 
+    this->setValue(currentValue + (steps * stepMultiplier));
+    
+    event->accept();
 }
 
 void Gui::QuantitySpinBox::paintEvent(QPaintEvent*)
