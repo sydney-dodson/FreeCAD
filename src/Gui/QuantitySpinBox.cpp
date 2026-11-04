@@ -306,6 +306,7 @@ void Gui::QuantitySpinBox::keyPressEvent(QKeyEvent* event)
             const QSignalBlocker blocker(lineEdit());
             updateText(d->quantity);
         }
+        // Restore the editor here, then leave cancellation to an enclosing task panel.
         event->ignore();
         return;
     }
@@ -316,11 +317,15 @@ void Gui::QuantitySpinBox::keyPressEvent(QKeyEvent* event)
             normalize();
         }
         if (d->validInput) {
+            // This handler deliberately consumes Return after committing the text. Preserve the
+            // QAbstractSpinBox signal contract for callers that use editingFinished().
             Q_EMIT returnPressed();
             Q_EMIT editingFinished();
+            // A successful local commit must not hide Return from an enclosing task panel.
             event->ignore();
         }
         else {
+            // Rejected input must not accept the surrounding task.
             event->accept();
         }
         return;
